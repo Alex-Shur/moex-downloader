@@ -38,7 +38,6 @@ uv --version
 ### 2. Навигация в проект и запуск приложения
 
 ```powershell
-cd c:\WORK\_Trading\xx_libs\moex_downloader
 uv run moex_downloader.py
 ```
 
