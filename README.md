@@ -13,7 +13,7 @@
 
 ### 1. Установка UV
 
-UV — это современный и быстрый менеджер пакетов Python. Установите его одним из способов:
+[UV](https://docs.astral.sh/uv/) — это современный и быстрый менеджер пакетов Python. Установите его одним из способов:
 
 #### На Windows (PowerShell):
 ```powershell
@@ -118,4 +118,5 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 - **pandas** (>=2.0.0) — обработка данных
 - **pyqt6** (>=6.8.0) — графический интерфейс
 - **qasync** (>=0.27.0) — асинхронное программирование для PyQt6
+
 
