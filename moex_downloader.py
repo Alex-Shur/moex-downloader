@@ -418,15 +418,15 @@ async def load_ticker_to_df(http_client:httpx.AsyncClient,
             interval = candles.CANDLES_M1
         case 'M5' | 'm5':
             interval = candles.CANDLES_M1
-            resample = '5T'
+            resample = '5min'
         case 'M10' | 'm10':
             interval = candles.CANDLES_M10
         case 'M15' | 'm15':
             interval = candles.CANDLES_M1
-            resample = '15T'
+            resample = '15min'
         case 'M30' | 'm30':
             interval = candles.CANDLES_M10
-            resample = '30T'
+            resample = '30min'
         case 'M60' | 'm60':
             interval = candles.CANDLES_M60
         case 'D' | 'd':
