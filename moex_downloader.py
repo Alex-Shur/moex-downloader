@@ -32,7 +32,7 @@ T_STOCKS_COLS = ["Load", "SECID", "SHORTNAME", "CURRENCYID", "ISIN", "LISTLEVEL"
 T_FUTURES_COLS = ["Load", "SECID", "name", "start_date", "expiration_date", "asset_code", "underlying_asset", "is_traded",  "Start","End"]
 T_STOCKS_FILE = T_STOCKS+"_config.csv"
 T_FUTURES_FILE = T_FUTURES+"_config.csv"
-T_DATA_PATH = ".\\DATA"
+T_DATA_PATH = os.path.join(".", "DATA")
 
 
 class MaskedDelegate(QStyledItemDelegate):
@@ -75,8 +75,8 @@ class MainWindow(QMainWindow):
         self.tab1, self.table_stocks, self.tf_stocks= self.create_tab(self.df_stocks, T_STOCKS)
         self.tab2, self.table_futures, self.tf_futures = self.create_tab(self.df_futures, T_FUTURES)
 
-        self.tabs.addTab(self.tab1, "Акции")
-        self.tabs.addTab(self.tab2, "Фьючерсы")
+        self.tabs.addTab(self.tab1, "Stocks")
+        self.tabs.addTab(self.tab2, "Futures")
 
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.tabs)
@@ -135,7 +135,7 @@ class MainWindow(QMainWindow):
         table.setRowCount(len(df))
         table.setColumnCount(len(df.columns))
         table.setHorizontalHeaderLabels(df.columns.tolist())
-        table.horizontalHeader().setStyleSheet("QHeaderView::section { background-color: lightblue; }")
+        table.horizontalHeader().setStyleSheet("")
 
         def handle_checkbox_change(row):
             checkbox_item = table.item(row, 0)
@@ -219,34 +219,43 @@ class MainWindow(QMainWindow):
         filter_box.textChanged.connect(filter_table)
 
         layout_combo = QHBoxLayout()
-        combo_label = QLabel('Тimeframe:', self)
+        combo_label = QLabel('Timeframe:', self)
         combo_label.setFixedWidth(combo_label.sizeHint().width())
         combo = QComboBox()
-        combo.addItem('1 мин', 'M1')
-        combo.addItem('5 мин', 'M5')
-        combo.addItem('10 мин', 'M10')
-        combo.addItem('15 мин', 'M15')
-        combo.addItem('30 мин', 'M30')
-        combo.addItem('1 час', 'M60')
-        combo.addItem('1 день', 'D')
-        combo.addItem('1 месяц', 'M')
-        combo.setCurrentText('1 час')
+        combo.addItem('1 min', 'M1')
+        combo.addItem('5 min', 'M5')
+        combo.addItem('10 min', 'M10')
+        combo.addItem('15 min', 'M15')
+        combo.addItem('30 min', 'M30')
+        combo.addItem('1 hour', 'M60')
+        combo.addItem('1 day', 'D')
+        combo.addItem('1 month', 'M')
+        combo.setCurrentText('1 day')
         combo.setFixedWidth(100)
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        path_label = QLabel('Path:', self)
+        path_label.setFixedWidth(path_label.sizeHint().width())
+        path_edit = QLineEdit()
+        path_edit.setText(script_dir)
+        path_edit.setToolTip("Folder for saving quotes and config files")
 
         layout_combo.addWidget(combo_label)
         layout_combo.addWidget(combo)
-        layout_combo.addStretch()
+        layout_combo.addSpacing(20)
+        layout_combo.addWidget(path_label)
+        layout_combo.addWidget(path_edit)
 
         button_layout = QHBoxLayout()
-        refresh_button = QPushButton("Обновить список")
+        refresh_button = QPushButton("Refresh list")
         refresh_button.setFixedWidth(120)
-        refresh_button.setToolTip("Синхронизировать список тикеров с данными MOEX ")
-        save_button = QPushButton("Сохранить")
+        refresh_button.setToolTip("Synchronize ticker list with MOEX data")
+        save_button = QPushButton("Save")
         save_button.setFixedWidth(80)
-        save_button.setToolTip("Сохранить конфигурацию таблиц в CSV файлах")
-        run_button = QPushButton("Загрузить")
+        save_button.setToolTip("Save table configuration to CSV files")
+        run_button = QPushButton("Download")
         run_button.setFixedWidth(80)
-        run_button.setToolTip("Загрузить/обновить данные свечей для выбранных инструментов")
+        run_button.setToolTip("Download/update candle data for selected instruments")
 
         button_layout.addStretch()
         button_layout.addWidget(refresh_button)
@@ -256,9 +265,9 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(run_button)
         button_layout.addStretch()
 
-        save_button.clicked.connect(lambda: self.save_table_to_csv(table, tab_id))
+        save_button.clicked.connect(lambda: self.save_table_to_csv(table, tab_id, path_edit.text()))
         refresh_button.clicked.connect(lambda: self.refresh_data(table, tab_id))
-        run_button.clicked.connect(lambda: self.run_downloading_candles(table, tab_id, combo.currentData()))
+        run_button.clicked.connect(lambda: self.run_downloading_candles(table, tab_id, combo.currentData(), path_edit.text()))
 
         layout.addLayout(filter_layout)
         layout.addWidget(table)
@@ -305,9 +314,12 @@ class MainWindow(QMainWindow):
         else:
             return pd.DataFrame()
 
-    def save_table_to_csv(self, table, tab_name):
+    def save_table_to_csv(self, table, tab_name, save_path=None):
         df = self.save_table_to_df(table)
-        fname = T_STOCKS_FILE if tab_name==T_STOCKS else T_FUTURES_FILE
+        if not save_path:
+            save_path = os.path.dirname(os.path.abspath(__file__))
+        os.makedirs(save_path, exist_ok=True)
+        fname = os.path.join(save_path, T_STOCKS_FILE if tab_name==T_STOCKS else T_FUTURES_FILE)
         df.to_csv(fname, index=False, lineterminator='\r\n', sep=';')
         QMessageBox.information(self, "Save", f"Data saved to {fname} ")
         # with open(f"{tab_name}_filtered.json", "w", encoding="utf-8") as file:
@@ -356,7 +368,7 @@ class MainWindow(QMainWindow):
                 self.table_load(table, df=df, tab_id=mode, update=True)
 
 
-    def run_downloading_candles(self, table, tab_id, tf):
+    def run_downloading_candles(self, table, tab_id, tf, save_path=None):
         df = self.save_table_to_df_selected(table)
         if len(df)==0:
             return
@@ -364,9 +376,9 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Already loading")
             return
         # Сохраняем ссылку на task
-        self._download_task = asyncio.create_task(self.download_candles(mode=tab_id, df=df, tf=tf))
+        self._download_task = asyncio.create_task(self.download_candles(mode=tab_id, df=df, tf=tf, save_path=save_path))
 
-    async def download_candles(self, mode=T_STOCKS, df=None, tf:str='D'):
+    async def download_candles(self, mode=T_STOCKS, df=None, tf:str='D', save_path=None):
         if df is None or len(df)<1:
             return
 
@@ -376,7 +388,8 @@ class MainWindow(QMainWindow):
         failed = False
         tf = tf.upper()
         try:
-            fpath = f'{T_DATA_PATH}\\{"stocks" if mode==T_STOCKS else "futures"}\\{tf}'
+            base_path = save_path if save_path else os.path.dirname(os.path.abspath(__file__))
+            fpath = os.path.join(base_path, "DATA", "stocks" if mode==T_STOCKS else "futures", tf)
             market = "shares" if mode==T_STOCKS else "forts"
             engine = "stock" if mode==T_STOCKS else "futures"
 
@@ -387,7 +400,12 @@ class MainWindow(QMainWindow):
                     
                     start = df.iloc[row, df.columns.get_loc('Start')]
                     end = df.iloc[row, df.columns.get_loc('End')] if mode==T_FUTURES else None
-                    fname = df.iloc[row, df.columns.get_loc('name')] if mode==T_FUTURES else secid 
+                    if mode == T_FUTURES:
+                        raw_name = df.iloc[row, df.columns.get_loc('name')]
+                        raw_name = str(raw_name).strip() if raw_name else ""
+                        fname = re.sub(r'[\\/:*?"<>|]', '_', raw_name) if raw_name else secid
+                    else:
+                        fname = secid
                     # await load_ticker_to_csv(client, secid, fpath, tf, start=None, end=None, market=market, engine=engine)
                     await load_ticker_to_csv(client, secid=secid, path=fpath, fname=fname,  tf=tf, start=start, end=end, market=market, engine=engine)
 
@@ -418,15 +436,15 @@ async def load_ticker_to_df(http_client:httpx.AsyncClient,
             interval = candles.CANDLES_M1
         case 'M5' | 'm5':
             interval = candles.CANDLES_M1
-            resample = '5min'
+            resample = '5T'
         case 'M10' | 'm10':
             interval = candles.CANDLES_M10
         case 'M15' | 'm15':
             interval = candles.CANDLES_M1
-            resample = '15min'
+            resample = '15T'
         case 'M30' | 'm30':
             interval = candles.CANDLES_M10
-            resample = '30min'
+            resample = '30T'
         case 'M60' | 'm60':
             interval = candles.CANDLES_M60
         case 'D' | 'd':
@@ -452,7 +470,7 @@ async def load_ticker_to_df(http_client:httpx.AsyncClient,
 
 async def load_ticker_to_csv(http_client:httpx.AsyncClient,
                             secid:str,
-                            path:str=".\\data",
+                            path:str=os.path.join(".", "data"),
                             fname:str=None,
                             tf:str="D",
                             start:str|None=None,
@@ -518,7 +536,12 @@ async def load_list_futures(http_client:httpx.AsyncClient):
     df = df.rename(columns={"secid": "SECID"})
     df["idx"] = df["SECID"]
     df.set_index("idx", inplace=True)
-    df = df.fillna(0)
+    # Fill NaN separately: numeric columns with 0, string columns with ""
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            df[col] = df[col].fillna(0)
+        else:
+            df[col] = df[col].fillna("")
     df["is_traded"] = df["is_traded"].astype(int)
     return df
 
@@ -585,20 +608,26 @@ if __name__ == "__main__":
     df_stocks = pd.DataFrame()
     df_futures = pd.DataFrame()
 
-    if os.path.isfile(T_STOCKS_FILE):
-        df = pd.read_csv(T_STOCKS_FILE, sep=';')
-        if all(column in df.columns for column in T_STOCKS_COLS):
-            df["idx"] = df["SECID"]
-            df.set_index("idx", inplace=True)
-            df_stocks = df.fillna("")
+    if os.path.isfile(T_STOCKS_FILE) and os.path.getsize(T_STOCKS_FILE) > 0:
+        try:
+            df = pd.read_csv(T_STOCKS_FILE, sep=';')
+            if all(column in df.columns for column in T_STOCKS_COLS):
+                df["idx"] = df["SECID"]
+                df.set_index("idx", inplace=True)
+                df_stocks = df.fillna("")
+        except Exception:
+            pass
 
-    if os.path.isfile(T_FUTURES_FILE):
-        df = pd.read_csv(T_FUTURES_FILE, sep=';')
-        if all(column in df.columns for column in T_FUTURES_COLS):
-            df["idx"] = df["SECID"]
-            df.set_index("idx", inplace=True)
-            df_futures = df.fillna("")
-            df_futures = update_futures_date(df_futures)
+    if os.path.isfile(T_FUTURES_FILE) and os.path.getsize(T_FUTURES_FILE) > 0:
+        try:
+            df = pd.read_csv(T_FUTURES_FILE, sep=';')
+            if all(column in df.columns for column in T_FUTURES_COLS):
+                df["idx"] = df["SECID"]
+                df.set_index("idx", inplace=True)
+                df_futures = df.fillna("")
+                df_futures = update_futures_date(df_futures)
+        except Exception:
+            pass
 
     window = MainWindow(df_stocks, df_futures)
     window.resize(1400, 800)
